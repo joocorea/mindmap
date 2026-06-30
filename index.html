@@ -203,7 +203,7 @@
         /* 인쇄(프린트) 최적화 스타일 */
         @media print {
             @page {
-                size: A4 landscape;
+                /* 기본값 제거. JS에서 동적으로 style 태그를 삽입해 덮어씌웁니다. */
                 margin: 0;
             }
             body, html {
@@ -269,9 +269,13 @@
             <div class="w-px h-4 bg-gray-300 mx-2"></div>
             
             <button onclick="resetZoomPan()" class="p-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">초점 맞추기</button>
-            <button onclick="printA4()" class="px-4 py-1.5 bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors shadow-sm flex items-center gap-1.5">
+            <button onclick="printA4('landscape')" class="px-3 py-1.5 bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors shadow-sm flex items-center gap-1.5">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                A4 인쇄
+                가로 인쇄
+            </button>
+            <button onclick="printA4('portrait')" class="px-3 py-1.5 bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors shadow-sm flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0zM13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0"></path></svg>
+                세로 인쇄
             </button>
             <button onclick="resetData()" class="px-4 py-1.5 bg-white border border-gray-300 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors">
                 초기화
@@ -1075,7 +1079,15 @@
             setTimeout(() => toast.classList.remove('show'), duration);
         }
 
-        function printA4() {
+        function printA4(orientation = 'landscape') {
+            let printStyle = document.getElementById('dynamic-print-style');
+            if (!printStyle) {
+                printStyle = document.createElement('style');
+                printStyle.id = 'dynamic-print-style';
+                document.head.appendChild(printStyle);
+            }
+            printStyle.innerHTML = `@media print { @page { size: A4 ${orientation}; margin: 0; } }`;
+
             scale = 1;
             translateX = 0;
             translateY = 0;
@@ -1085,8 +1097,8 @@
                 const layout = document.getElementById('tree-layout');
                 const rect = layout.getBoundingClientRect(); 
                 
-                const a4Width = 1123;
-                const a4Height = 794;
+                const a4Width = orientation === 'landscape' ? 1123 : 794;
+                const a4Height = orientation === 'landscape' ? 794 : 1123;
                 const padding = 60; 
                 
                 let newScale = Math.min((a4Width - padding * 2) / rect.width, (a4Height - padding * 2) / rect.height);
