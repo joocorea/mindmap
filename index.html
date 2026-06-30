@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All MindMap</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    
+    <style>
+        /* 기본 스타일 및 폰트 */
+        body { 
+            background-color: #f5f6f8; 
+            font-family: 'Pretendard', sans-serif; 
+            color: #333;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* 맵 컨테이너 (이동 및 줌) */
+        #map-viewport {
+            width: 100vw;
+            height: calc(100vh - 60px);
+            position: relative;
+            cursor: grab;
+            overflow: hidden;
+        }
+        #map-viewport:active { cursor: grabbing; }
+
+        #zoomable-layer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform-origin: 0 0;
+            width: 10000px;
+            height: 10000px;
+            margin-left: -5000px;
+            margin-top: -5000px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* SVG 연결선 레이어 */
+        #svg-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* 노드 레이아웃 (DOM) */
+        #tree-layout {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 40px;
+        }
+
+        /* 마인드맵 노드 공통 스타일 */
+        .node-pill {
+            position: relative;
+            padding: 6px 16px;
+            border-radius: 9999px;
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1.5px solid transparent;
+        }
+        
+        .node-pill:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+            z-index: 10;
+        }
+
+        /* 내용 편집 영역 */
+        .node-text {
+            outline: none;
+            min-width: 20px;
+            cursor: text;
+        }
+        
+        .node-text:focus {
+            border-bottom: 2px solid rgba(0,0,0,0.3);
+        }
+
+        /* 레벨별 색상 테마 (주황색) */
+        .level-root {
+            background-color: #ea580c;
+            color: white;
+            font-size: 18px;
+            padding: 10px 24px;
+            box-shadow: 0 4px 10px rgba(234, 88, 12, 0.4);
+        }
+        .level-1 {
+            background-color: #f97316;
+            color: white;
+            padding: 8px 20px;
+        }
+        .level-2 {
+            background-color: #fdba74;
+            color: #7c2d12;
+        }
+        .level-3 {
+            background-color: #ffedd5;
+            border-color: #fed7aa;
+            color: #7c2d12;
+            font-weight: 500;
+        }
+
+        /* 액션 버튼 (추가/삭제) */
+        .actions {
+            position: absolute;
+            top: -12px;
+            right: -12px;
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .node-pill:hover .actions { opacity: 1; }
+        
+        .btn-action {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .btn-add { background-color: #10b981; }
+        .btn-del { background-color: #ef4444; }
+        
+        /* 드래그 앤 드롭 시각 효과 (상하좌우 위치) */
+        .drag-over-center {
+            box-shadow: 0 0 0 3px #60a5fa, 0 4px 10px rgba(0,0,0,0.2) !important;
+            transform: scale(1.05) !important;
+            z-index: 20;
+        }
+        
+        .drag-over-top::before {
+            content: '';
+            position: absolute;
+            top: -8px;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: #3b82f6;
+            border-radius: 2px;
+            box-shadow: 0 2px 4px rgba(59,130,246,0.4);
+            z-index: 20;
+        }
+
+        .drag-over-bottom::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: #3b82f6;
+            border-radius: 2px;
+            box-shadow: 0 2px 4px rgba(59,130,246,0.4);
+            z-index: 20;
+        }
+
+        /* 토스트 메시지 */
+        #toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #333;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 1000;
+        }
+        #toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        /* 인쇄(프린트) 최적화 스타일 */
+        @media print {
+            @page {
+                size: A4 landscape;
+                margin: 0;
+            }
+            body, html {
+                background-color: white !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
+            }
+            header, #toast, #confirm-modal, .actions, .bg-gray-100, #settings-modal {
+                display: none !important;
+            }
+            main {
+                display: block !important;
+                overflow: visible !important;
+            }
+            #map-viewport {
+                background: white !important;
+                position: relative !important;
+                overflow: hidden !important;
+                margin: 0 auto !important;
+            }
+            .node-pill {
+                box-shadow: none !important;
+            }
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="bg-white border-b border-gray-200 h-[60px] flex items-center justify-between px-6 shadow-sm z-50 relative">
+        <div class="flex items-center gap-3">
+            <h1 class="text-lg font-bold text-gray-800">개인 맞춤형 마인드맵</h1>
+            <span class="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded">더블클릭하여 수정 / 드래그로 항목 이동</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <!-- 설정 버튼 -->
+            <button onclick="openSettingsModal()" class="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-1.5">
+                ⚙️ 설정
+            </button>
+            <!-- 구글 로그인 관련 버튼 -->
+            <button id="btn-auth" onclick="handleAuthClick()" class="px-4 py-1.5 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-1.5">
+                <svg class="w-4 h-4" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                Google 로그인
+            </button>
+            <button id="btn-save-drive" onclick="saveToDrive()" class="px-4 py-1.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors shadow-sm flex items-center gap-1.5" style="display:none;">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                Drive 저장
+            </button>
+            <button id="btn-load-drive" onclick="loadFromDrive()" class="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-1.5" style="display:none;">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Drive 열기
+            </button>
+            
+            <div class="w-px h-4 bg-gray-300 mx-2"></div>
+            
+            <button onclick="resetZoomPan()" class="p-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">초점 맞추기</button>
+            <button onclick="printA4()" class="px-4 py-1.5 bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors shadow-sm flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                A4 인쇄
+            </button>
+            <button onclick="resetData()" class="px-4 py-1.5 bg-white border border-gray-300 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors">
+                초기화
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <div id="map-viewport">
+            <div id="zoomable-layer" style="transform: translate(0px, 0px) scale(1);">
+                <svg id="svg-canvas"></svg>
+                
+                <div id="tree-layout">
+                    <!-- Left Tree -->
+                    <div id="left-branch" class="flex flex-row-reverse items-center gap-10"></div>
+                    
+                    <!-- Root Node -->
+                    <div class="node-pill level-root" id="node-root" ondblclick="makeRootEditable(this)">
+                        <span contenteditable="false" class="node-text" onblur="this.contentEditable=false; updateTitle('root', this.innerText)">All MindMap</span>
+                        <div class="actions">
+                            <button class="btn-action btn-add" onmousedown="event.stopPropagation()" onclick="event.stopPropagation(); addNode('root');">+</button>
+                        </div>
+                    </div>
+                    
+                    <script>
+                        function makeRootEditable(el) {
+                            const span = el.querySelector('.node-text');
+                            span.contentEditable = true;
+                            span.focus();
+                            const range = document.createRange();
+                            range.selectNodeContents(span);
+                            const sel = window.getSelection();
+                            sel.removeAllRanges();
+                            sel.addRange(range);
+                        }
+                    </script>
+                    
+                    <!-- Right Tree -->
+                    <div id="right-branch" class="flex flex-row items-center gap-10"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="toast">메시지</div>
+        
+        <!-- 커스텀 확인 모달 -->
+        <div id="confirm-modal" class="hidden fixed inset-0 bg-black/40 z-[9999] flex items-center justify-center backdrop-blur-sm transition-opacity">
+            <div class="bg-white rounded-2xl shadow-2xl p-6 w-[340px] text-center transform transition-transform scale-100">
+                <div class="mb-4 text-orange-500">
+                    <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                </div>
+                <p id="confirm-msg" class="text-gray-800 font-bold mb-6 whitespace-pre-wrap leading-relaxed">메시지</p>
+                <div class="flex gap-3 justify-center">
+                    <button id="btn-cancel" class="flex-1 py-2.5 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors">취소</button>
+                    <button id="btn-confirm" class="flex-1 py-2.5 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30">확인</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 설정 모달 -->
+        <div id="settings-modal" class="hidden fixed inset-0 bg-black/40 z-[9999] flex items-center justify-center">
+            <div class="bg-white rounded-2xl p-6 w-[360px]">
+                <h2 class="text-lg font-bold mb-4">Google Drive 설정</h2>
+                <input id="input-api-key" type="text" placeholder="API Key" class="w-full p-2 border rounded mb-2">
+                <input id="input-client-id" type="text" placeholder="Client ID" class="w-full p-2 border rounded mb-4">
+                <div class="flex gap-2">
+                    <button onclick="closeSettingsModal()" class="flex-1 py-2 bg-gray-100 rounded">취소</button>
+                    <button onclick="saveSettings()" class="flex-1 py-2 bg-blue-600 text-white rounded">저장</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        const FILE_NAME = 'my_personal_mindmap.json';
+
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+        let isAuthorized = false;
+
+        function getApiKey() { return localStorage.getItem('gdrive_api_key') || ''; }
+        function getClientId() { return localStorage.getItem('gdrive_client_id') || ''; }
+
+        function openSettingsModal() {
+            document.getElementById('input-api-key').value = getApiKey();
+            document.getElementById('input-client-id').value = getClientId();
+            document.getElementById('settings-modal').classList.remove('hidden');
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settings-modal').classList.add('hidden');
+        }
+
+        function saveSettings() {
+            const apiKey = document.getElementById('input-api-key').value.trim();
+            const clientId = document.getElementById('input-client-id').value.trim();
+            localStorage.setItem('gdrive_api_key', apiKey);
+            localStorage.setItem('gdrive_client_id', clientId);
+            closeSettingsModal();
+            
+            // 설정 저장 후 즉시 초기화 재시도
+            if (apiKey) {
+                if (typeof gapi !== 'undefined') gapi.load('client', initializeGapiClient);
+            }
+            if (clientId) {
+                if (typeof google !== 'undefined') gisLoaded();
+            }
+            alert('인증 정보가 저장되었습니다. 구글 연동 버튼을 눌러 테스트해보세요!');
+        }
+
+        function gapiLoaded() {
+            if(getApiKey()) {
+                gapi.load('client', initializeGapiClient);
+            }
+        }
+
+        async function initializeGapiClient() {
+            try {
+                await gapi.client.init({
+                    apiKey: getApiKey(),
+                    discoveryDocs: DISCOVERY_DOCS,
+                });
+                gapiInited = true;
+                maybeEnableButtons();
+            } catch (err) {
+                console.error("GAPI Init Error:", err);
+                alert("구글 API 초기화 실패! API 키가 잘못되었거나 권한이 없습니다.\n상세 에러: " + (err.message || JSON.stringify(err)));
+            }
+        }
+
+        function gisLoaded() {
+            if(!getClientId()) return;
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: getClientId(),
+                scope: SCOPES,
+                callback: '', // will be set at runtime
+            });
+            gisInited = true;
+            maybeEnableButtons();
+        }
+
+        function maybeEnableButtons() {
+            if (gapiInited && gisInited) {
+                // Initialized successfully
+            }
+        }
+
+        function handleAuthClick() {
+            if (!getApiKey() || !getClientId()) {
+                alert('먼저 ⚙️ 설정 버튼을 눌러 API Key와 Client ID를 입력해주세요.');
+                openSettingsModal();
+                return;
+            }
+            
+            if (!gapiInited || !gisInited) {
+                let msg = '구글 라이브러리 초기화 상태:\n';
+                msg += 'GAPI (Drive API): ' + (gapiInited ? '성공' : '대기중/실패') + '\n';
+                msg += 'GIS (인증): ' + (gisInited ? '성공' : '대기중/실패') + '\n\n';
+                
+                if (typeof gapi === 'undefined') msg += '- 구글 gapi 스크립트가 아직 로드되지 않았습니다.\n';
+                if (typeof google === 'undefined') msg += '- 구글 google 스크립트가 아직 로드되지 않았습니다.\n';
+                
+                msg += '\n페이지를 새로고침(F5)하거나, [⚙️ 설정] 버튼을 눌러 API 키가 올바른지 확인 후 [저장]을 다시 눌러주세요. 인터넷 환경(광고차단 등)에 의해 구글 스크립트가 차단되었을 수도 있습니다.';
+                
+                alert(msg);
+                
+                // 강제 재시도
+                if (!gapiInited && typeof gapi !== 'undefined') gapiLoaded();
+                if (!gisInited && typeof google !== 'undefined') gisLoaded();
+                
+                return;
+            }
+            tokenClient.callback = async (resp) => {
+                if (resp.error !== undefined) {
+                    throw (resp);
+                }
+                isAuthorized = true;
+                document.getElementById('btn-auth').style.display = 'none';
+                document.getElementById('btn-save-drive').classList.remove('hidden');
+                document.getElementById('btn-load-drive').classList.remove('hidden');
+                alert("구글 연동이 완료되었습니다!");
+            };
+
+            if (gapi.client.getToken() === null) {
+                tokenClient.requestAccessToken({prompt: 'consent'});
+            } else {
+                tokenClient.requestAccessToken({prompt: ''});
+            }
+        }
+
+        // 구글 로그아웃 처리
+        function handleSignoutClick() {
+            const token = gapi.client.getToken();
+            if (token !== null) {
+                google.accounts.oauth2.revoke(token.access_token, () => {
+                    gapi.client.setToken('');
+                    isAuthorized = false;
+                    document.getElementById('btn-auth').innerHTML = `
+                        <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                        Google 로그인
+                    `;
+                    document.getElementById('btn-auth').onclick = handleAuthClick;
+                    document.getElementById('btn-save-drive').style.display = 'none';
+                    document.getElementById('btn-load-drive').style.display = 'none';
+                    showToast('로그아웃 되었습니다.');
+                });
+            }
+        }
+
+        // 드라이브에 저장
+        async function saveToDrive() {
+            if (!isAuthorized) {
+                showToast('먼저 Google 계정으로 로그인해주세요.');
+                return;
+            }
+            showToast('저장 중입니다...', 5000);
+            
+            try {
+                const fileContent = JSON.stringify(mapData);
+                const file = new Blob([fileContent], {type: 'application/json'});
+                
+                // 검색: 파일이 이미 있는지 확인
+                let response = await gapi.client.drive.files.list({
+                    q: `name='${FILE_NAME}' and trashed=false`,
+                    fields: 'files(id, name)',
+                    spaces: 'drive'
+                });
+                
+                const files = response.result.files;
+                let fileId = null;
+                if (files && files.length > 0) {
+                    fileId = files[0].id;
+                }
+
+                const metadata = {
+                    name: FILE_NAME,
+                    mimeType: 'application/json'
+                };
+
+                const form = new FormData();
+                form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
+                form.append('file', file);
+
+                const method = fileId ? 'PATCH' : 'POST';
+                const url = fileId 
+                    ? `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`
+                    : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+
+                const token = gapi.client.getToken().access_token;
+                const fetchResponse = await fetch(url, {
+                    method: method,
+                    headers: new Headers({'Authorization': 'Bearer ' + token}),
+                    body: form
+                });
+
+                if (fetchResponse.ok) {
+                    showToast('Google Drive에 저장 성공!');
+                } else {
+                    throw new Error('Upload failed');
+                }
+            } catch (e) {
+                console.error(e);
+                showToast('저장 중 오류가 발생했습니다.');
+            }
+        }
+
+        // 드라이브에서 불러오기
+        async function loadFromDrive() {
+            if (!isAuthorized) {
+                showToast('먼저 Google 계정으로 로그인해주세요.');
+                return;
+            }
+            showToast('불러오는 중입니다...', 5000);
+            
+            try {
+                let response = await gapi.client.drive.files.list({
+                    q: `name='${FILE_NAME}' and trashed=false`,
+                    fields: 'files(id, name)',
+                    spaces: 'drive'
+                });
+                
+                const files = response.result.files;
+                if (files && files.length > 0) {
+                    const fileId = files[0].id;
+                    
+                    const fileResponse = await gapi.client.drive.files.get({
+                        fileId: fileId,
+                        alt: 'media'
+                    });
+                    
+                    mapData = fileResponse.result;
+                    render();
+                    resetZoomPan();
+                    showToast('Google Drive에서 불러왔습니다!');
+                } else {
+                    showToast('Drive에 저장된 마인드맵이 없습니다.');
+                }
+            } catch (e) {
+                console.error(e);
+                showToast('불러오기 중 오류가 발생했습니다.');
+            }
+        }
+
+        // ==========================================
+        // 마인드맵 로직
+        // ==========================================
+
+        const initialData = {
+            id: "root",
+            title: "All MindMap",
+            left: [],
+            right: []
+        };
+
+        let mapData = null;
+        let scale = 1;
+        let translateX = 0;
+        let translateY = 0;
+        const connectionRegistry = [];
+        
+        let customGhost = null;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+        let dragStartMouseX = 0;
+        let dragStartMouseY = 0;
+
+        function init() {
+            // 로컬 스토리지에 데이터가 있으면 복원, 없으면 템플릿 사용
+            const savedData = localStorage.getItem('mindmap_personal_v2');
+            if (savedData) {
+                try {
+                    mapData = JSON.parse(savedData);
+                } catch (e) {
+                    mapData = JSON.parse(JSON.stringify(initialData));
+                }
+            } else {
+                mapData = JSON.parse(JSON.stringify(initialData));
+            }
+            
+            const rootEl = document.getElementById('node-root');
+            rootEl.ondragover = (e) => { 
+                e.preventDefault(); 
+                clearHighlights();
+                rootEl.classList.add('drag-over-center'); 
+            };
+            rootEl.ondragleave = (e) => { clearHighlights(); };
+            rootEl.ondrop = (e) => {
+                e.preventDefault();
+                clearHighlights();
+                const draggedId = e.dataTransfer.getData('text/plain');
+                if(draggedId) {
+                    const rect = rootEl.getBoundingClientRect();
+                    const side = e.clientX < rect.left + rect.width / 2 ? 'left' : 'right';
+                    moveNode(draggedId, 'root', side, 'child');
+                }
+            };
+
+            setupInteractions();
+            render();
+        }
+
+        function clearHighlights() {
+            document.querySelectorAll('.drag-over-center, .drag-over-top, .drag-over-bottom').forEach(el => {
+                el.classList.remove('drag-over-center', 'drag-over-top', 'drag-over-bottom');
+            });
+        }
+
+        function render() {
+            document.querySelector('#node-root .node-text').innerText = mapData.title;
+            
+            const leftContainer = document.getElementById('left-branch');
+            const rightContainer = document.getElementById('right-branch');
+            
+            leftContainer.innerHTML = '';
+            rightContainer.innerHTML = '';
+            connectionRegistry.length = 0;
+
+            mapData.left.forEach(node => {
+                connectionRegistry.push({ from: 'node-root', to: 'node-' + node.id, dir: 'left' });
+                leftContainer.appendChild(createBranchHTML(node, 1, 'left'));
+            });
+
+            mapData.right.forEach(node => {
+                connectionRegistry.push({ from: 'node-root', to: 'node-' + node.id, dir: 'right' });
+                rightContainer.appendChild(createBranchHTML(node, 1, 'right'));
+            });
+
+            requestAnimationFrame(() => drawLines());
+        }
+
+        function createBranchHTML(node, level, direction) {
+            const wrapper = document.createElement('div');
+            wrapper.className = `flex ${direction === 'left' ? 'flex-row-reverse' : 'flex-row'} items-center gap-10 relative branch-wrapper`;
+            wrapper.id = `branch-${node.id}`;
+            
+            wrapper.style.transform = `translate(${node.offsetX || 0}px, ${node.offsetY || 0}px)`;
+            wrapper.style.transition = 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)';
+            wrapper.draggable = true;
+            
+            wrapper.ondragstart = (e) => {
+                e.stopPropagation();
+                if(document.activeElement.tagName === 'SPAN' && document.activeElement.isContentEditable) {
+                    e.preventDefault();
+                    return;
+                }
+                e.dataTransfer.setData('text/plain', node.id);
+                e.dataTransfer.effectAllowed = 'move';
+                
+                // 기본 브라우저 고스트 숨기기
+                const img = new Image();
+                img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+                e.dataTransfer.setDragImage(img, 0, 0);
+
+                const rect = wrapper.getBoundingClientRect();
+                dragOffsetX = e.clientX - rect.left;
+                dragOffsetY = e.clientY - rect.top;
+                
+                dragStartMouseX = e.clientX;
+                dragStartMouseY = e.clientY;
+
+                customGhost = wrapper.cloneNode(true);
+                customGhost.id = 'drag-ghost';
+                customGhost.style.position = 'fixed';
+                customGhost.style.pointerEvents = 'none';
+                customGhost.style.zIndex = '9999';
+                customGhost.style.opacity = '0.9';
+                customGhost.style.transform = 'scale(1.02)';
+                customGhost.style.transition = 'none';
+                customGhost.style.left = (e.clientX - dragOffsetX) + 'px';
+                customGhost.style.top = (e.clientY - dragOffsetY) + 'px';
+                
+                // 복제본에서 액션 버튼 제거
+                const acts = customGhost.querySelectorAll('.actions');
+                acts.forEach(a => a.remove());
+
+                document.body.appendChild(customGhost);
+                
+                setTimeout(() => wrapper.classList.add('opacity-30'), 0);
+            };
+
+            wrapper.ondrag = (e) => {
+                if(customGhost && e.clientX !== 0 && e.clientY !== 0) {
+                    customGhost.style.left = (e.clientX - dragOffsetX) + 'px';
+                    customGhost.style.top = (e.clientY - dragOffsetY) + 'px';
+                }
+            };
+
+            wrapper.ondragend = (e) => {
+                e.stopPropagation();
+                wrapper.classList.remove('opacity-30');
+                if(customGhost) {
+                    customGhost.remove();
+                    customGhost = null;
+                }
+                clearHighlights();
+            };
+
+            const nodeEl = document.createElement('div');
+            nodeEl.className = `node-pill level-${level > 3 ? 3 : level}`;
+            nodeEl.id = `node-${node.id}`;
+            
+            const textEl = document.createElement('span');
+            textEl.className = 'node-text';
+            textEl.contentEditable = false;
+            textEl.innerText = node.title;
+            
+            nodeEl.ondblclick = (e) => {
+                e.stopPropagation();
+                textEl.contentEditable = true;
+                textEl.focus();
+                // 텍스트 전체 선택
+                const range = document.createRange();
+                range.selectNodeContents(textEl);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+            };
+
+            textEl.onblur = (e) => { 
+                textEl.contentEditable = false;
+                wrapper.draggable = true; 
+                updateTitle(node.id, e.target.innerText); 
+            };
+            textEl.onmousedown = (e) => {
+                if(textEl.contentEditable === "true") {
+                    e.stopPropagation();
+                }
+            };
+            
+            nodeEl.appendChild(textEl);
+
+            const actions = document.createElement('div');
+            actions.className = 'actions';
+            
+            const delBtn = document.createElement('button');
+            delBtn.className = 'btn-action btn-del';
+            delBtn.innerHTML = '×';
+            delBtn.onmousedown = (e) => e.stopPropagation();
+            delBtn.onclick = (e) => { e.stopPropagation(); deleteNode(node.id); };
+            actions.appendChild(delBtn);
+            
+            const addBtn = document.createElement('button');
+            addBtn.className = 'btn-action btn-add';
+            addBtn.innerHTML = '+';
+            addBtn.onmousedown = (e) => e.stopPropagation();
+            addBtn.onclick = (e) => { e.stopPropagation(); addNode(node.id); };
+            actions.appendChild(addBtn);
+
+            nodeEl.appendChild(actions);
+            wrapper.appendChild(nodeEl);
+
+            nodeEl.ondragover = (e) => {
+                e.preventDefault(); 
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = 'move';
+                
+                const rect = nodeEl.getBoundingClientRect();
+                const y = e.clientY - rect.top;
+                
+                clearHighlights();
+                
+                if (y < rect.height * 0.25) {
+                    nodeEl.classList.add('drag-over-top');
+                } else if (y > rect.height * 0.75) {
+                    nodeEl.classList.add('drag-over-bottom');
+                } else {
+                    nodeEl.classList.add('drag-over-center');
+                }
+            };
+
+            nodeEl.ondragleave = (e) => {
+                e.stopPropagation();
+                clearHighlights();
+            };
+
+            nodeEl.ondrop = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                clearHighlights();
+                
+                const draggedId = e.dataTransfer.getData('text/plain');
+                if(draggedId) {
+                    const rect = nodeEl.getBoundingClientRect();
+                    const y = e.clientY - rect.top;
+                    
+                    let position = 'child';
+                    if (y < rect.height * 0.25) position = 'before';
+                    else if (y > rect.height * 0.75) position = 'after';
+
+                    moveNode(draggedId, node.id, direction, position);
+                }
+            };
+
+            if (node.children && node.children.length > 0) {
+                const childrenWrapper = document.createElement('div');
+                const alignClass = direction === 'left' ? 'items-end' : 'items-start';
+                childrenWrapper.className = `flex flex-col gap-3 ${alignClass}`;
+                
+                node.children.forEach(child => {
+                    connectionRegistry.push({ from: nodeEl.id, to: 'node-' + child.id, dir: direction });
+                    childrenWrapper.appendChild(createBranchHTML(child, level + 1, direction));
+                });
+                
+                wrapper.appendChild(childrenWrapper);
+            }
+
+            return wrapper;
+        }
+
+        function drawLines() {
+            const svg = document.getElementById('svg-canvas');
+            svg.innerHTML = '';
+            
+            const zoomLayer = document.getElementById('zoomable-layer');
+            const layerRect = zoomLayer.getBoundingClientRect();
+            
+            connectionRegistry.forEach(conn => {
+                const fromEl = document.getElementById(conn.from);
+                const toEl = document.getElementById(conn.to);
+                
+                if(!fromEl || !toEl) return;
+
+                const fRect = fromEl.getBoundingClientRect();
+                const tRect = toEl.getBoundingClientRect();
+                
+                let startX, startY, endX, endY;
+
+                startY = (fRect.top - layerRect.top + fRect.height / 2) / scale;
+                endY = (tRect.top - layerRect.top + tRect.height / 2) / scale;
+
+                if (conn.dir === 'right') {
+                    startX = (fRect.right - layerRect.left) / scale;
+                    endX = (tRect.left - layerRect.left) / scale;
+                } else {
+                    startX = (fRect.left - layerRect.left) / scale;
+                    endX = (tRect.right - layerRect.left) / scale;
+                }
+
+                // 직교 라우팅 (Orthogonal Routing) 및 역방향 베지어 폴백
+                const isRight = conn.dir === 'right';
+                const isNormalDirection = isRight ? (endX >= startX) : (endX <= startX);
+                
+                let d = '';
+
+                if (isNormalDirection) {
+                    const absDx = Math.abs(endX - startX);
+                    const absDy = Math.abs(endY - startY);
+                    
+                    // 노드가 너무 가까울 때 선이 꼬이지 않도록 둥근 모서리 반지름(r)을 동적으로 축소
+                    const r = Math.min(12, absDx / 2, absDy / 2);
+                    const midX = startX + (endX - startX) / 2;
+
+                    if (absDy < 2) {
+                        d = `M ${startX} ${startY} L ${endX} ${endY}`;
+                    } else {
+                        const dirY = endY > startY ? 1 : -1;
+                        const signX = isRight ? 1 : -1;
+                        
+                        d = `M ${startX} ${startY} 
+                             L ${midX - r * signX} ${startY}
+                             Q ${midX} ${startY} ${midX} ${startY + r * dirY}
+                             L ${midX} ${endY - r * dirY}
+                             Q ${midX} ${endY} ${midX + r * signX} ${endY}
+                             L ${endX} ${endY}`;
+                    }
+                } else {
+                    // 노드를 아예 반대 방향으로 드래그 한 경우 (노드를 관통하지 않도록 루프형 베지어 곡선 사용)
+                    const cpOffset = Math.max(60, Math.abs(endX - startX) * 0.6);
+                    const cp1X = startX + (isRight ? cpOffset : -cpOffset);
+                    const cp2X = endX - (isRight ? cpOffset : -cpOffset);
+                    d = `M ${startX} ${startY} C ${cp1X} ${startY}, ${cp2X} ${endY}, ${endX} ${endY}`;
+                }
+
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                
+                path.setAttribute('d', d);
+                path.setAttribute('stroke', '#cbd5e1');
+                path.setAttribute('stroke-width', '2');
+                path.setAttribute('fill', 'none');
+                
+                svg.appendChild(path);
+            });
+        }
+
+        function findNode(id, branchArray) {
+            for (let i = 0; i < branchArray.length; i++) {
+                if (branchArray[i].id === id) return { node: branchArray[i], parentArray: branchArray, index: i };
+                if (branchArray[i].children) {
+                    const result = findNode(id, branchArray[i].children);
+                    if (result) return result;
+                }
+            }
+            return null;
+        }
+
+        function findGlobalNode(id) {
+            if (id === 'root') return { node: mapData, isRoot: true };
+            let result = findNode(id, mapData.left);
+            if (result) return result;
+            return findNode(id, mapData.right);
+        }
+
+        function generateId() {
+            return Math.random().toString(36).substr(2, 9);
+        }
+
+        function updateTitle(id, newTitle) {
+            const info = findGlobalNode(id);
+            if (info && info.node) {
+                info.node.title = newTitle;
+                autoSave();
+            }
+        }
+
+        let alternateSide = 'right';
+        function addNode(parentId) {
+            const info = findGlobalNode(parentId);
+            if (info && info.node) {
+                if (info.isRoot) {
+                    if (alternateSide === 'right') {
+                        info.node.right.push({ id: generateId(), title: '새 항목', children: [] });
+                        alternateSide = 'left';
+                    } else {
+                        info.node.left.push({ id: generateId(), title: '새 항목', children: [] });
+                        alternateSide = 'right';
+                    }
+                } else {
+                    if (!info.node.children) info.node.children = [];
+                    info.node.children.push({
+                        id: generateId(),
+                        title: '새 항목',
+                        children: []
+                    });
+                }
+                render();
+                autoSave();
+            }
+        }
+
+        function deleteNode(id) {
+            showConfirm('이 항목과 하위 항목들을 삭제하시겠습니까?', () => {
+                const info = findGlobalNode(id);
+                if (info && info.parentArray) {
+                    info.parentArray.splice(info.index, 1);
+                    render();
+                    autoSave();
+                }
+            });
+        }
+
+        function isDescendant(parentId, childId) {
+            if(parentId === childId) return true;
+            const parentInfo = findGlobalNode(parentId);
+            if(!parentInfo || !parentInfo.node.children) return false;
+            
+            let found = false;
+            const check = (node) => {
+                if(node.id === childId) found = true;
+                if(node.children) node.children.forEach(check);
+            }
+            check(parentInfo.node);
+            return found;
+        }
+
+        function moveNode(draggedId, targetId, side = 'right', position = 'child') {
+            if (draggedId === targetId) return;
+            if (isDescendant(draggedId, targetId)) {
+                showToast('자신의 하위 항목으로 이동할 수 없습니다.');
+                return;
+            }
+
+            const draggedInfo = findGlobalNode(draggedId);
+            if (!draggedInfo || draggedInfo.isRoot) {
+                if (draggedInfo && draggedInfo.isRoot) showToast('최상위 노드는 이동할 수 없습니다.');
+                return;
+            }
+
+            draggedInfo.parentArray.splice(draggedInfo.index, 1);
+            
+            // 다른 노드에 종속될 때는 수동 오프셋 초기화
+            draggedInfo.node.offsetX = 0;
+            draggedInfo.node.offsetY = 0;
+
+            const targetInfo = findGlobalNode(targetId);
+            if (!targetInfo) return;
+
+            if (position === 'child') {
+                if (targetInfo.isRoot) {
+                    if (side === 'left') mapData.left.push(draggedInfo.node);
+                    else mapData.right.push(draggedInfo.node);
+                } else {
+                    if (!targetInfo.node.children) targetInfo.node.children = [];
+                    targetInfo.node.children.push(draggedInfo.node);
+                }
+            } else if (position === 'before') {
+                if (targetInfo.isRoot) return;
+                targetInfo.parentArray.splice(targetInfo.index, 0, draggedInfo.node);
+            } else if (position === 'after') {
+                if (targetInfo.isRoot) return;
+                targetInfo.parentArray.splice(targetInfo.index + 1, 0, draggedInfo.node);
+            }
+
+            render();
+            autoSave();
+        }
+
+        function showConfirm(msg, onConfirm) {
+            const modal = document.getElementById('confirm-modal');
+            document.getElementById('confirm-msg').innerText = msg;
+            modal.classList.remove('hidden');
+            
+            document.getElementById('btn-cancel').onclick = () => modal.classList.add('hidden');
+            document.getElementById('btn-confirm').onclick = () => {
+                onConfirm();
+                modal.classList.add('hidden');
+            };
+        }
+
+        // 로컬 자동 저장 (구글 드라이브와 별개로 복구용)
+        function autoSave() {
+            localStorage.setItem('mindmap_personal_v2', JSON.stringify(mapData));
+        }
+
+        function resetData() {
+            showConfirm('모든 수정사항이 삭제되고 원본(템플릿)으로 돌아갑니다.\n진행하시겠습니까?', () => {
+                mapData = JSON.parse(JSON.stringify(initialData));
+                autoSave();
+                resetZoomPan();
+                render();
+                showToast('초기화 완료되었습니다.');
+            });
+        }
+
+        function showToast(msg, duration = 2000) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), duration);
+        }
+
+        function printA4() {
+            scale = 1;
+            translateX = 0;
+            translateY = 0;
+            updateTransform();
+            
+            setTimeout(() => {
+                const layout = document.getElementById('tree-layout');
+                const rect = layout.getBoundingClientRect(); 
+                
+                const a4Width = 1123;
+                const a4Height = 794;
+                const padding = 60; 
+                
+                let newScale = Math.min((a4Width - padding * 2) / rect.width, (a4Height - padding * 2) / rect.height);
+                if (newScale > 1) newScale = 1; // 원본보다 더 크게 확대하지 않음
+                
+                scale = newScale;
+                updateTransform();
+
+                // 인쇄 시 레이아웃 붕괴를 막기 위해 명시적인 A4 픽셀 크기 지정
+                const viewport = document.getElementById('map-viewport');
+                const oldWidth = viewport.style.width;
+                const oldHeight = viewport.style.height;
+                viewport.style.width = a4Width + 'px';
+                viewport.style.height = a4Height + 'px';
+                
+                setTimeout(() => {
+                    drawLines();
+                    window.print();
+                    
+                    setTimeout(() => {
+                        viewport.style.width = oldWidth;
+                        viewport.style.height = oldHeight;
+                        resetZoomPan();
+                    }, 1000);
+                }, 100);
+            }, 100);
+        }
+
+        function setupInteractions() {
+            const viewport = document.getElementById('map-viewport');
+            
+            let isDragging = false;
+            let startClientX, startClientY;
+            let startTranslateX, startTranslateY;
+
+            viewport.addEventListener('mousedown', (e) => {
+                if(e.target.tagName.toLowerCase() === 'span' || e.target.closest('.node-pill')) return;
+                
+                isDragging = true;
+                startClientX = e.clientX;
+                startClientY = e.clientY;
+                startTranslateX = translateX;
+                startTranslateY = translateY;
+            });
+
+            // 빈 공간(viewport)에 드롭했을 때 (자유 배치 오프셋 적용)
+            viewport.addEventListener('dragover', (e) => {
+                e.preventDefault();
+            });
+            viewport.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const draggedId = e.dataTransfer.getData('text/plain');
+                if(draggedId) {
+                    const dx = (e.clientX - dragStartMouseX) / scale;
+                    const dy = (e.clientY - dragStartMouseY) / scale;
+
+                    const info = findGlobalNode(draggedId);
+                    if (info && !info.isRoot) {
+                        info.node.offsetX = (info.node.offsetX || 0) + dx;
+                        info.node.offsetY = (info.node.offsetY || 0) + dy;
+                        render();
+                        autoSave();
+                    }
+                }
+            });
+
+            window.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const dx = e.clientX - startClientX;
+                const dy = e.clientY - startClientY;
+                translateX = startTranslateX + dx;
+                translateY = startTranslateY + dy;
+                updateTransform();
+            });
+
+            viewport.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const zoomIntensity = 0.1;
+                if (e.deltaY < 0) {
+                    scale = Math.min(scale + zoomIntensity, 2);
+                } else {
+                    scale = Math.max(scale - zoomIntensity, 0.3);
+                }
+                updateTransform();
+            }, { passive: false });
+            
+            window.addEventListener('resize', () => {
+                requestAnimationFrame(drawLines);
+            });
+        }
+
+        function updateTransform() {
+            const layer = document.getElementById('zoomable-layer');
+            layer.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+            requestAnimationFrame(drawLines);
+        }
+
+        function resetZoomPan() {
+            scale = 1;
+            translateX = 0;
+            translateY = 0;
+            updateTransform();
+        }
+
+        window.onload = init;
+    </script>
+    
+    <!-- Google API 연동 스크립트 -->
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+</body>
+</html>
