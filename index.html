@@ -459,7 +459,15 @@
                 document.getElementById('btn-auth').style.display = 'none';
                 document.getElementById('btn-save-drive').classList.remove('hidden');
                 document.getElementById('btn-load-drive').classList.remove('hidden');
-                alert("구글 연동이 완료되었습니다!");
+                
+                // 스마트 자동 불러오기 로직
+                const isMapEmpty = (mapData.left.length === 0 && mapData.right.length === 0 && mapData.title === "All MindMap");
+                if (isMapEmpty) {
+                    showToast("구글 연동 완료! 데이터를 불러옵니다...");
+                    await loadFromDrive(true);
+                } else {
+                    alert("구글 연동이 완료되었습니다!\n현재 로컬에 작성 중인 내용이 있습니다. 덮어씌워지지 않도록 자동 불러오기는 생략합니다.\n드라이브에서 불러오려면 상단의 [Drive 열기]를 눌러주세요.");
+                }
             };
 
             if (gapi.client.getToken() === null) {
@@ -489,12 +497,12 @@
         }
 
         // 드라이브에 저장
-        async function saveToDrive() {
+        async function saveToDrive(silent = false) {
             if (!isAuthorized) {
-                showToast('먼저 Google 계정으로 로그인해주세요.');
+                if (!silent) showToast('먼저 Google 계정으로 로그인해주세요.');
                 return;
             }
-            showToast('저장 중입니다...', 5000);
+            if (!silent) showToast('저장 중입니다...', 5000);
             
             try {
                 const fileContent = JSON.stringify(mapData);
@@ -535,23 +543,24 @@
                 });
 
                 if (fetchResponse.ok) {
-                    showToast('Google Drive에 저장 성공!');
+                    if (!silent) showToast('Google Drive에 저장 성공!');
+                    else showToast('✅ 드라이브 자동 동기화 완료', 2000);
                 } else {
                     throw new Error('Upload failed');
                 }
             } catch (e) {
                 console.error(e);
-                showToast('저장 중 오류가 발생했습니다.');
+                if (!silent) showToast('저장 중 오류가 발생했습니다.');
             }
         }
 
         // 드라이브에서 불러오기
-        async function loadFromDrive() {
+        async function loadFromDrive(silent = false) {
             if (!isAuthorized) {
-                showToast('먼저 Google 계정으로 로그인해주세요.');
+                if (!silent) showToast('먼저 Google 계정으로 로그인해주세요.');
                 return;
             }
-            showToast('불러오는 중입니다...', 5000);
+            if (!silent) showToast('불러오는 중입니다...', 5000);
             
             try {
                 let response = await gapi.client.drive.files.list({
@@ -1058,8 +1067,16 @@
         }
 
         // 로컬 자동 저장 (구글 드라이브와 별개로 복구용)
+        let autoSaveTimer = null;
         function autoSave() {
             localStorage.setItem('mindmap_personal_v2', JSON.stringify(mapData));
+            
+            if (isAuthorized) {
+                clearTimeout(autoSaveTimer);
+                autoSaveTimer = setTimeout(() => {
+                    saveToDrive(true);
+                }, 3000);
+            }
         }
 
         function resetData() {
