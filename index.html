@@ -388,6 +388,24 @@
                 </div>
             </div>
         </div>
+
+        <!-- 하단 체크리스트 메모장 -->
+        <div id="notepad-widget" class="fixed bottom-0 left-1/2 transform -translate-x-1/2 bg-white rounded-t-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.1)] border border-gray-200 border-b-0 w-[600px] z-[100] transition-transform duration-300 translate-y-[calc(100%-48px)] print:bottom-8 print:translate-y-0 print:shadow-none print:border-none">
+            <!-- 헤더 (클릭 시 토글) -->
+            <div class="h-[48px] px-5 flex items-center justify-between cursor-pointer border-b border-gray-100 hover:bg-gray-50 rounded-t-2xl print:hidden" onclick="toggleNotepad()">
+                <h3 class="font-bold text-gray-700 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                    체크리스트 메모장
+                </h3>
+                <svg id="notepad-icon" class="w-5 h-5 text-gray-400 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
+            </div>
+            
+            <!-- 내용 영역 -->
+            <div class="p-5 flex gap-8 h-[240px] print:h-auto print:p-0 print:pt-4">
+                <div class="flex-1 flex flex-col gap-3" id="notepad-left"></div>
+                <div class="flex-1 flex flex-col gap-3" id="notepad-right"></div>
+            </div>
+        </div>
     </main>
 
     <script>
@@ -734,6 +752,7 @@
             };
 
             setupInteractions();
+            initNotepad();
             render();
         }
 
@@ -1259,14 +1278,16 @@
                 const a4Width = orientation === 'landscape' ? 1123 : 794;
                 const a4Height = orientation === 'landscape' ? 794 : 1123;
                 const padding = 60; 
+                const notepadHeight = 280; // 하단 메모장 및 여백 확보 공간
                 
-                let newScale = Math.min((a4Width - padding * 2) / rect.width, (a4Height - padding * 2) / rect.height);
+                let newScale = Math.min((a4Width - padding * 2) / rect.width, (a4Height - padding * 2 - notepadHeight) / rect.height);
                 if (newScale > 1) newScale = 1; // 원본보다 더 크게 확대하지 않음
                 
                 scale = newScale;
                 // 치우침 방지: 스케일이 적용된 만큼 shift 값도 스케일링해서 이동
+                // 메모장 공간(240px)의 절반(120px)만큼 전체 마인드맵을 위로 올려서 시각적 중심을 맞춥니다.
                 translateX = shiftX * newScale;
-                translateY = shiftY * newScale;
+                translateY = (shiftY * newScale) - (notepadHeight / 2);
                 updateTransform();
 
                 // 인쇄 시 레이아웃 붕괴를 막기 위해 명시적인 A4 픽셀 크기 지정
@@ -1606,6 +1627,85 @@
             }
             
             table.appendChild(tbody);
+        }
+
+        // ==========================================
+        // 체크리스트 메모장 로직
+        // ==========================================
+        let notepadData = { left: [], right: [] };
+        
+        function initNotepad() {
+            const saved = localStorage.getItem('mindmap_notepad');
+            if (saved) {
+                try { notepadData = JSON.parse(saved); } catch (e) {}
+            }
+            if (!notepadData.left || notepadData.left.length !== 5) {
+                notepadData.left = Array(5).fill(null).map(() => ({ checked: false, text: '' }));
+            }
+            if (!notepadData.right || notepadData.right.length !== 5) {
+                notepadData.right = Array(5).fill(null).map(() => ({ checked: false, text: '' }));
+            }
+            renderNotepad();
+        }
+
+        function renderNotepad() {
+            const leftContainer = document.getElementById('notepad-left');
+            const rightContainer = document.getElementById('notepad-right');
+            leftContainer.innerHTML = '';
+            rightContainer.innerHTML = '';
+
+            const createItem = (item, index, side) => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center gap-3';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'w-4 h-4 text-orange-600 rounded border-gray-300 focus:ring-orange-500 cursor-pointer';
+                checkbox.checked = item.checked;
+                checkbox.onchange = (e) => {
+                    notepadData[side][index].checked = e.target.checked;
+                    input.style.textDecoration = e.target.checked ? 'line-through' : 'none';
+                    input.style.color = e.target.checked ? '#9ca3af' : '#374151';
+                    saveNotepad();
+                };
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'flex-1 bg-transparent border-b border-transparent hover:border-gray-200 focus:border-orange-400 outline-none px-1 py-0.5 text-sm transition-colors print:placeholder-transparent print:border-b-gray-200';
+                input.value = item.text;
+                input.placeholder = '내용을 입력하세요';
+                input.style.textDecoration = item.checked ? 'line-through' : 'none';
+                input.style.color = item.checked ? '#9ca3af' : '#374151';
+                input.oninput = (e) => {
+                    notepadData[side][index].text = e.target.value;
+                    saveNotepad();
+                };
+
+                div.appendChild(checkbox);
+                div.appendChild(input);
+                return div;
+            };
+
+            notepadData.left.forEach((item, i) => leftContainer.appendChild(createItem(item, i, 'left')));
+            notepadData.right.forEach((item, i) => rightContainer.appendChild(createItem(item, i, 'right')));
+        }
+
+        function saveNotepad() {
+            localStorage.setItem('mindmap_notepad', JSON.stringify(notepadData));
+        }
+
+        function toggleNotepad() {
+            const widget = document.getElementById('notepad-widget');
+            const icon = document.getElementById('notepad-icon');
+            if (widget.classList.contains('translate-y-[calc(100%-48px)]')) {
+                widget.classList.remove('translate-y-[calc(100%-48px)]');
+                widget.classList.add('translate-y-0');
+                icon.classList.add('rotate-180');
+            } else {
+                widget.classList.add('translate-y-[calc(100%-48px)]');
+                widget.classList.remove('translate-y-0');
+                icon.classList.remove('rotate-180');
+            }
         }
 
         window.onload = init;
