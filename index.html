@@ -963,8 +963,7 @@
                 
                 let startX, startY, endX, endY;
 
-                const step = fRect.height / (conn.totalChildren + 1);
-                startY = (fRect.top - layerRect.top + step * (conn.childIndex + 1)) / scale;
+                startY = (fRect.top - layerRect.top + fRect.height / 2) / scale;
                 endY = (tRect.top - layerRect.top + tRect.height / 2) / scale;
 
                 if (conn.dir === 'right') {
@@ -987,10 +986,10 @@
                 const cOffsetX = targetNode && targetNode.curveOffsetX !== undefined ? targetNode.curveOffsetX : 0;
                 const cOffsetY = targetNode && targetNode.curveOffsetY !== undefined ? targetNode.curveOffsetY : 0;
                 
-                // 제어점 계산: 사용자가 지정한 오프셋이 있으면 추가
-                const cpOffsetBase = Math.max(40, Math.abs(endX - startX) * 0.5);
+                // 제어점 계산: S자가 아닌 트리 형태(Bracket)를 위해 두 제어점 모두 startX 근처로 배치
+                const cpOffsetBase = 40; 
                 const cp1X = startX + (isRight ? cpOffsetBase : -cpOffsetBase) + cOffsetX;
-                const cp2X = endX - (isRight ? cpOffsetBase : -cpOffsetBase) + cOffsetX;
+                const cp2X = startX + (isRight ? cpOffsetBase : -cpOffsetBase) + cOffsetX; 
                 const cp1Y = startY + cOffsetY;
                 const cp2Y = endY + cOffsetY;
                 
