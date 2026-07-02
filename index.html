@@ -1277,15 +1277,15 @@
                 
                 const a4Width = orientation === 'landscape' ? 1123 : 794;
                 const a4Height = orientation === 'landscape' ? 794 : 1123;
-                const padding = 60; 
-                const notepadHeight = 280; // 하단 메모장 및 여백 확보 공간
+                const padding = 40; 
+                const notepadHeight = 150; // 실제 인쇄시 차지하는 메모장 높이 (헤더 숨김 반영)
                 
                 let newScale = Math.min((a4Width - padding * 2) / rect.width, (a4Height - padding * 2 - notepadHeight) / rect.height);
                 if (newScale > 1) newScale = 1; // 원본보다 더 크게 확대하지 않음
                 
                 scale = newScale;
                 // 치우침 방지: 스케일이 적용된 만큼 shift 값도 스케일링해서 이동
-                // 메모장 공간(240px)의 절반(120px)만큼 전체 마인드맵을 위로 올려서 시각적 중심을 맞춥니다.
+                // 메모장 공간의 절반만큼 전체 마인드맵을 위로 올려서 시각적 중심을 맞춥니다.
                 translateX = shiftX * newScale;
                 translateY = (shiftY * newScale) - (notepadHeight / 2);
                 updateTransform();
