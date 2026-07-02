@@ -20,8 +20,7 @@
 
         /* 맵 컨테이너 (이동 및 줌) */
         #map-viewport {
-            width: 100vw;
-            height: calc(100vh - 60px);
+            flex: 1;
             position: relative;
             cursor: grab;
             overflow: hidden;
@@ -32,7 +31,7 @@
             position: absolute;
             top: 50%;
             left: 50%;
-            transform-origin: 0 0;
+            transform-origin: 50% 50%;
             width: 10000px;
             height: 10000px;
             margin-left: -5000px;
@@ -60,15 +59,15 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 40px;
+            gap: 30px;
         }
 
         /* 마인드맵 노드 공통 스타일 */
         .node-pill {
             position: relative;
-            padding: 6px 16px;
+            padding: 4px 12px;
             border-radius: 9999px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             white-space: nowrap;
             display: flex;
@@ -100,14 +99,14 @@
         .level-root {
             background-color: #ea580c;
             color: white;
-            font-size: 18px;
-            padding: 10px 24px;
+            font-size: 16px;
+            padding: 8px 20px;
             box-shadow: 0 4px 10px rgba(234, 88, 12, 0.4);
         }
         .level-1 {
             background-color: #f97316;
             color: white;
-            padding: 8px 20px;
+            padding: 6px 16px;
         }
         .level-2 {
             background-color: #fdba74;
@@ -212,7 +211,7 @@
                 padding: 0 !important;
                 overflow: visible !important;
             }
-            header, #toast, #confirm-modal, .actions, .bg-gray-100, #settings-modal {
+            header, aside, #toast, #confirm-modal, .actions, .bg-gray-100, #settings-modal {
                 display: none !important;
             }
             main {
@@ -283,7 +282,24 @@
         </div>
     </header>
 
-    <main>
+    <main class="flex h-[calc(100vh-60px)] w-full">
+        <!-- 좌측 사이드바 메뉴 (인쇄 시 숨김) -->
+        <aside class="w-56 bg-white border-r border-gray-200 flex flex-col z-40 shadow-sm relative">
+            <div class="p-4 border-b border-gray-100">
+                <h2 class="text-sm font-bold text-gray-500 uppercase tracking-wider">Menu</h2>
+            </div>
+            <nav class="flex-1 p-3 space-y-2">
+                <button id="tab-mindmap" onclick="switchTab('mindmap')" class="w-full text-left px-3 py-2.5 bg-orange-50 text-orange-700 font-semibold rounded-lg flex items-center gap-2 transition-colors border border-orange-100">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+                    마인드맵
+                </button>
+                <button id="tab-stats" onclick="switchTab('stats')" class="w-full text-left px-3 py-2.5 text-gray-600 font-medium rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors border border-transparent">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    통계
+                </button>
+            </nav>
+        </aside>
+
         <div id="map-viewport">
             <div id="zoomable-layer" style="transform: translate(0px, 0px) scale(1);">
                 <svg id="svg-canvas"></svg>
@@ -331,6 +347,41 @@
                 <div class="flex gap-3 justify-center">
                     <button id="btn-cancel" class="flex-1 py-2.5 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors">취소</button>
                     <button id="btn-confirm" class="flex-1 py-2.5 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30">확인</button>
+                </div>
+            </div>
+        </div>
+        <!-- 통계 화면 (숨김) -->
+        <div id="stats-viewport" class="flex-1 bg-gray-50 overflow-y-auto hidden p-8 relative">
+            <div class="max-w-4xl mx-auto space-y-6">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">마인드맵 통계</h1>
+                    <p class="text-gray-500 mt-1">현재 작성된 마인드맵의 다양한 분석 데이터를 확인합니다.</p>
+                </div>
+                <!-- 대시보드 카드 영역 -->
+                <div id="stats-dashboard" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- JS로 렌더링 됨 -->
+                </div>
+                <!-- 좌우 균형 시각화 -->
+                <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                    <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">좌우 균형 분포</h3>
+                    <div id="stats-balance" class="h-4 w-full bg-gray-100 rounded-full overflow-hidden flex">
+                        <!-- JS로 렌더링 됨 -->
+                    </div>
+                    <div class="flex justify-between text-xs text-gray-400 mt-2 font-medium">
+                        <span>LEFT</span>
+                        <span>RIGHT</span>
+                    </div>
+                </div>
+                <!-- 노드 데이터 계층 표 -->
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mt-6">
+                    <div class="p-5 border-b border-gray-200">
+                        <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider">마인드맵 세부 데이터 표</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm" id="stats-data-table">
+                            <!-- JS로 동적 생성 -->
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -887,7 +938,7 @@
             if (node.children && node.children.length > 0) {
                 const childrenWrapper = document.createElement('div');
                 const alignClass = direction === 'left' ? 'items-end' : 'items-start';
-                childrenWrapper.className = `flex flex-col gap-3 ${alignClass}`;
+                childrenWrapper.className = `flex flex-col gap-2 ${alignClass}`;
                 
                 node.children.forEach(child => {
                     connectionRegistry.push({ from: nodeEl.id, to: 'node-' + child.id, dir: direction });
@@ -929,40 +980,16 @@
                     endX = (tRect.right - layerRect.left) / scale;
                 }
 
-                // 직교 라우팅 (Orthogonal Routing) 및 역방향 베지어 폴백
+                // 유려한 곡선 (Cubic Bezier Curve) 적용
                 const isRight = conn.dir === 'right';
-                const isNormalDirection = isRight ? (endX >= startX) : (endX <= startX);
                 
-                let d = '';
-
-                if (isNormalDirection) {
-                    const absDx = Math.abs(endX - startX);
-                    const absDy = Math.abs(endY - startY);
-                    
-                    // 노드가 너무 가까울 때 선이 꼬이지 않도록 둥근 모서리 반지름(r)을 동적으로 축소
-                    const r = Math.min(12, absDx / 2, absDy / 2);
-                    const midX = startX + (endX - startX) / 2;
-
-                    if (absDy < 2) {
-                        d = `M ${startX} ${startY} L ${endX} ${endY}`;
-                    } else {
-                        const dirY = endY > startY ? 1 : -1;
-                        const signX = isRight ? 1 : -1;
-                        
-                        d = `M ${startX} ${startY} 
-                             L ${midX - r * signX} ${startY}
-                             Q ${midX} ${startY} ${midX} ${startY + r * dirY}
-                             L ${midX} ${endY - r * dirY}
-                             Q ${midX} ${endY} ${midX + r * signX} ${endY}
-                             L ${endX} ${endY}`;
-                    }
-                } else {
-                    // 노드를 아예 반대 방향으로 드래그 한 경우 (노드를 관통하지 않도록 루프형 베지어 곡선 사용)
-                    const cpOffset = Math.max(60, Math.abs(endX - startX) * 0.6);
-                    const cp1X = startX + (isRight ? cpOffset : -cpOffset);
-                    const cp2X = endX - (isRight ? cpOffset : -cpOffset);
-                    d = `M ${startX} ${startY} C ${cp1X} ${startY}, ${cp2X} ${endY}, ${endX} ${endY}`;
-                }
+                // 제어점 계산: 거리에 비례하되 최소 40px 보장하여 부드럽게 꺾이도록 함
+                const cpOffset = Math.max(40, Math.abs(endX - startX) * 0.5);
+                const cp1X = startX + (isRight ? cpOffset : -cpOffset);
+                const cp2X = endX - (isRight ? cpOffset : -cpOffset);
+                
+                // M: 시작점, C: 3차 베지어 곡선 (cp1, cp2, 끝점)
+                const d = `M ${startX} ${startY} C ${cp1X} ${startY}, ${cp2X} ${endY}, ${endX} ${endY}`;
 
                 const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 
@@ -1155,7 +1182,18 @@
             
             setTimeout(() => {
                 const layout = document.getElementById('tree-layout');
+                const viewport = document.getElementById('map-viewport');
                 const rect = layout.getBoundingClientRect(); 
+                const vpRect = viewport.getBoundingClientRect();
+                
+                // 뷰포트 중심과 실제 마인드맵 렌더링 중심의 차이 계산
+                const vpCenterX = vpRect.left + vpRect.width / 2;
+                const vpCenterY = vpRect.top + vpRect.height / 2;
+                const rectCenterX = rect.left + rect.width / 2;
+                const rectCenterY = rect.top + rect.height / 2;
+                
+                const shiftX = vpCenterX - rectCenterX;
+                const shiftY = vpCenterY - rectCenterY;
                 
                 const a4Width = orientation === 'landscape' ? 1123 : 794;
                 const a4Height = orientation === 'landscape' ? 794 : 1123;
@@ -1165,10 +1203,12 @@
                 if (newScale > 1) newScale = 1; // 원본보다 더 크게 확대하지 않음
                 
                 scale = newScale;
+                // 치우침 방지: 스케일이 적용된 만큼 shift 값도 스케일링해서 이동
+                translateX = shiftX * newScale;
+                translateY = shiftY * newScale;
                 updateTransform();
 
                 // 인쇄 시 레이아웃 붕괴를 막기 위해 명시적인 A4 픽셀 크기 지정
-                const viewport = document.getElementById('map-viewport');
                 const oldWidth = viewport.style.width;
                 const oldHeight = viewport.style.height;
                 viewport.style.width = a4Width + 'px';
@@ -1265,6 +1305,237 @@
             translateX = 0;
             translateY = 0;
             updateTransform();
+        }
+        // ---------------- 통계 기능 ----------------
+        
+        function switchTab(tabId) {
+            const mapTab = document.getElementById('tab-mindmap');
+            const statsTab = document.getElementById('tab-stats');
+            const mapViewport = document.getElementById('map-viewport');
+            const statsViewport = document.getElementById('stats-viewport');
+            
+            if (tabId === 'mindmap') {
+                // UI 버튼 스타일 변경
+                mapTab.className = "w-full text-left px-3 py-2.5 bg-orange-50 text-orange-700 font-semibold rounded-lg flex items-center gap-2 transition-colors border border-orange-100";
+                statsTab.className = "w-full text-left px-3 py-2.5 text-gray-600 font-medium rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors border border-transparent";
+                
+                // 화면 전환
+                mapViewport.classList.remove('hidden');
+                statsViewport.classList.add('hidden');
+            } else if (tabId === 'stats') {
+                // UI 버튼 스타일 변경
+                statsTab.className = "w-full text-left px-3 py-2.5 bg-orange-50 text-orange-700 font-semibold rounded-lg flex items-center gap-2 transition-colors border border-orange-100";
+                mapTab.className = "w-full text-left px-3 py-2.5 text-gray-600 font-medium rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors border border-transparent";
+                
+                // 화면 전환
+                mapViewport.classList.add('hidden');
+                statsViewport.classList.remove('hidden');
+                
+                // 통계 렌더링
+                renderStats();
+            }
+        }
+        
+        function analyzeNode(node, depth, stats) {
+            stats.totalNodes++;
+            stats.totalChars += (node.title || '').length;
+            
+            if (depth > stats.maxDepth) {
+                stats.maxDepth = depth;
+            }
+            
+            if (!node.children || node.children.length === 0) {
+                stats.leafNodes++;
+            } else {
+                stats.branchNodes++;
+                node.children.forEach(child => {
+                    analyzeNode(child, depth + 1, stats);
+                });
+            }
+        }
+        
+        function analyzeMindMap() {
+            const stats = {
+                totalNodes: 1, // root
+                totalChars: (mapData.title || '').length,
+                maxDepth: 0,
+                leafNodes: 0,
+                branchNodes: 1, // root is always a branch initially conceptually, but let's calculate properly
+                leftCount: 0,
+                rightCount: 0
+            };
+            
+            // Analyze left tree
+            if (mapData.left && mapData.left.length > 0) {
+                let leftStats = { totalNodes: 0, totalChars: 0, maxDepth: 0, leafNodes: 0, branchNodes: 0 };
+                mapData.left.forEach(child => analyzeNode(child, 1, leftStats));
+                stats.totalNodes += leftStats.totalNodes;
+                stats.totalChars += leftStats.totalChars;
+                stats.leafNodes += leftStats.leafNodes;
+                stats.branchNodes += leftStats.branchNodes;
+                stats.maxDepth = Math.max(stats.maxDepth, leftStats.maxDepth);
+                stats.leftCount = leftStats.totalNodes;
+            }
+            
+            // Analyze right tree
+            if (mapData.right && mapData.right.length > 0) {
+                let rightStats = { totalNodes: 0, totalChars: 0, maxDepth: 0, leafNodes: 0, branchNodes: 0 };
+                mapData.right.forEach(child => analyzeNode(child, 1, rightStats));
+                stats.totalNodes += rightStats.totalNodes;
+                stats.totalChars += rightStats.totalChars;
+                stats.leafNodes += rightStats.leafNodes;
+                stats.branchNodes += rightStats.branchNodes;
+                stats.maxDepth = Math.max(stats.maxDepth, rightStats.maxDepth);
+                stats.rightCount = rightStats.totalNodes;
+            }
+            
+            // Root leaf check
+            if ((!mapData.left || mapData.left.length === 0) && (!mapData.right || mapData.right.length === 0)) {
+                stats.leafNodes = 1;
+                stats.branchNodes = 0;
+            }
+            
+            return stats;
+        }
+        
+        function renderStats() {
+            const stats = analyzeMindMap();
+            const dashboard = document.getElementById('stats-dashboard');
+            const balanceBar = document.getElementById('stats-balance');
+            
+            // 카드 생성 헬퍼
+            const createCard = (title, value, subtitle, color) => `
+                <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center">
+                    <div class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">${title}</div>
+                    <div class="text-3xl font-black text-${color}-600">${value}</div>
+                    <div class="text-xs text-gray-400 font-medium mt-1">${subtitle}</div>
+                </div>
+            `;
+            
+            dashboard.innerHTML = 
+                createCard('전체 노드 수', stats.totalNodes + '<span class="text-lg text-gray-400"> 개</span>', '루트 노드 포함', 'blue') +
+                createCard('최대 깊이', stats.maxDepth + '<span class="text-lg text-gray-400"> 단계</span>', '루트부터 제일 먼 거리', 'purple') +
+                createCard('끝단 노드 갯수', stats.leafNodes + '<span class="text-lg text-gray-400"> 개</span>', `전체의 ${Math.round((stats.leafNodes / stats.totalNodes) * 100)}% 차지`, 'green');
+                
+            // 좌우 균형 퍼센트 계산
+            const totalSide = stats.leftCount + stats.rightCount;
+            const leftPct = totalSide === 0 ? 50 : (stats.leftCount / totalSide) * 100;
+            const rightPct = totalSide === 0 ? 50 : (stats.rightCount / totalSide) * 100;
+            
+            balanceBar.innerHTML = `
+                <div class="bg-blue-400 h-full transition-all duration-500 flex items-center justify-center text-[10px] font-bold text-white shadow-inner" style="width: ${leftPct}%">
+                    ${leftPct > 10 ? Math.round(leftPct) + '%' : ''}
+                </div>
+                <div class="bg-purple-400 h-full transition-all duration-500 flex items-center justify-center text-[10px] font-bold text-white shadow-inner" style="width: ${rightPct}%">
+                    ${rightPct > 10 ? Math.round(rightPct) + '%' : ''}
+                </div>
+            `;
+            
+            // 데이터 표 렌더링
+            renderStatsTable(stats.maxDepth);
+        }
+
+        function getLeafCount(node) {
+            if (!node.children || node.children.length === 0) return 1;
+            return node.children.reduce((sum, child) => sum + getLeafCount(child), 0);
+        }
+
+        function buildTableRows(node, depth, maxDepth) {
+            const leaves = getLeafCount(node);
+            const tr = document.createElement('tr');
+            
+            // 현재 노드 정보 컬럼 추가
+            const td = document.createElement('td');
+            td.className = "p-3 border-b border-gray-100 align-top text-gray-800";
+            td.innerText = node.title || '새 항목';
+            td.rowSpan = leaves;
+            tr.appendChild(td);
+            
+            const rows = [tr];
+            
+            // 빈 칸(Depth 여백) 채우기: 현재 노드가 자식이 없고 제일 깊은 곳이 아닐 경우 남은 칸을 빈칸으로
+            if (!node.children || node.children.length === 0) {
+                for (let i = depth; i < maxDepth; i++) {
+                    const emptyTd = document.createElement('td');
+                    emptyTd.className = "p-3 border-b border-gray-100";
+                    tr.appendChild(emptyTd);
+                }
+            } else {
+                // 첫 번째 자식의 행 배열을 가져옴
+                const firstChildRows = buildTableRows(node.children[0], depth + 1, maxDepth);
+                
+                // 첫 번째 자식의 첫 번째 tr에 있는 td들을 부모 tr 뒤에 붙임
+                const firstChildTr = firstChildRows[0];
+                while(firstChildTr.firstChild) {
+                    tr.appendChild(firstChildTr.firstChild);
+                }
+                
+                // 첫 번째 자식의 나머지 행들을 rows 배열에 추가
+                for (let i = 1; i < firstChildRows.length; i++) {
+                    rows.push(firstChildRows[i]);
+                }
+                
+                // 두 번째 이후 자식들의 모든 행을 rows 배열에 순차적으로 추가
+                for (let i = 1; i < node.children.length; i++) {
+                    const childRows = buildTableRows(node.children[i], depth + 1, maxDepth);
+                    for (let j = 0; j < childRows.length; j++) {
+                        rows.push(childRows[j]);
+                    }
+                }
+            }
+            
+            return rows;
+        }
+
+        function renderStatsTable(maxDepth) {
+            const table = document.getElementById('stats-data-table');
+            table.innerHTML = '';
+            
+            // 1. 헤더 생성
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            headerRow.className = "bg-gray-100 text-gray-600 font-semibold border-b border-gray-200";
+            
+            for (let i = 1; i <= maxDepth; i++) {
+                const th = document.createElement('th');
+                th.className = "p-3";
+                th.innerText = i + "단계";
+                headerRow.appendChild(th);
+            }
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+            
+            // 2. 본문 생성
+            const tbody = document.createElement('tbody');
+            
+            // 왼쪽 트리 처리
+            if (mapData.left && mapData.left.length > 0) {
+                mapData.left.forEach(node => {
+                    const rows = buildTableRows(node, 1, maxDepth);
+                    rows.forEach(tr => tbody.appendChild(tr));
+                });
+            }
+            
+            // 오른쪽 트리 처리
+            if (mapData.right && mapData.right.length > 0) {
+                mapData.right.forEach(node => {
+                    const rows = buildTableRows(node, 1, maxDepth);
+                    rows.forEach(tr => tbody.appendChild(tr));
+                });
+            }
+            
+            // 데이터가 아무것도 없을 경우
+            if (tbody.children.length === 0) {
+                const emptyTr = document.createElement('tr');
+                const emptyTd = document.createElement('td');
+                emptyTd.colSpan = maxDepth + 1;
+                emptyTd.className = "p-8 text-center text-gray-400";
+                emptyTd.innerText = "하위 노드 데이터가 없습니다.";
+                emptyTr.appendChild(emptyTd);
+                tbody.appendChild(emptyTr);
+            }
+            
+            table.appendChild(tbody);
         }
 
         window.onload = init;
