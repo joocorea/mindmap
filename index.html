@@ -49,7 +49,7 @@
             width: 100%;
             height: 100%;
             pointer-events: none;
-            z-index: 1;
+            z-index: 10;
         }
 
         /* 노드 레이아웃 (DOM) */
@@ -977,21 +977,73 @@
                 // 유려한 곡선 (Cubic Bezier Curve) 적용
                 const isRight = conn.dir === 'right';
                 
-                // 제어점 계산: 거리에 비례하되 최소 40px 보장하여 부드럽게 꺾이도록 함
-                const cpOffset = Math.max(40, Math.abs(endX - startX) * 0.5);
-                const cp1X = startX + (isRight ? cpOffset : -cpOffset);
-                const cp2X = endX - (isRight ? cpOffset : -cpOffset);
+                // 타겟 노드 객체 찾기 (곡률 데이터 저장용)
+                const targetId = conn.to.replace('node-', '');
+                let targetNodeSearch = findNode(targetId, mapData.left);
+                if (!targetNodeSearch) targetNodeSearch = findNode(targetId, mapData.right);
+                const targetNode = targetNodeSearch ? targetNodeSearch.node : null;
+                
+                const cOffsetX = targetNode && targetNode.curveOffsetX !== undefined ? targetNode.curveOffsetX : 0;
+                const cOffsetY = targetNode && targetNode.curveOffsetY !== undefined ? targetNode.curveOffsetY : 0;
+                
+                // 제어점 계산: 사용자가 지정한 오프셋이 있으면 추가
+                const cpOffsetBase = Math.max(40, Math.abs(endX - startX) * 0.5);
+                const cp1X = startX + (isRight ? cpOffsetBase : -cpOffsetBase) + cOffsetX;
+                const cp2X = endX - (isRight ? cpOffsetBase : -cpOffsetBase) + cOffsetX;
+                const cp1Y = startY + cOffsetY;
+                const cp2Y = endY + cOffsetY;
                 
                 // M: 시작점, C: 3차 베지어 곡선 (cp1, cp2, 끝점)
-                const d = `M ${startX} ${startY} C ${cp1X} ${startY}, ${cp2X} ${endY}, ${endX} ${endY}`;
+                const d = `M ${startX} ${startY} C ${cp1X} ${cp1Y}, ${cp2X} ${cp2Y}, ${endX} ${endY}`;
+
+                // 사용자 클릭 편의성을 위해 투명하고 두꺼운 더미 선(히트박스)을 밑에 하나 더 깝니다.
+                const hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                hitPath.setAttribute('d', d);
+                hitPath.setAttribute('stroke', 'transparent');
+                hitPath.setAttribute('stroke-width', '20'); // 히트박스 두께
+                hitPath.setAttribute('fill', 'none');
+                hitPath.style.cursor = 'grab';
+                hitPath.style.pointerEvents = 'stroke'; // 상위 SVG가 none이므로 이 path만 클릭을 허용함
 
                 const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                
                 path.setAttribute('d', d);
                 path.setAttribute('stroke', '#cbd5e1');
                 path.setAttribute('stroke-width', '2');
                 path.setAttribute('fill', 'none');
+                path.style.cursor = 'grab';
+                path.style.pointerEvents = 'none'; // 이벤트는 hitPath가 받도록
                 
+                // 드래그 이벤트 연결
+                if (targetNode) {
+                    hitPath.onmousedown = (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        let startMouseX = e.clientX;
+                        let startMouseY = e.clientY;
+                        let initialOffsetX = targetNode.curveOffsetX || 0;
+                        let initialOffsetY = targetNode.curveOffsetY || 0;
+                        
+                        document.body.style.cursor = 'grabbing';
+                        
+                        document.onmousemove = (moveEvent) => {
+                            let deltaX = (moveEvent.clientX - startMouseX) / scale;
+                            let deltaY = (moveEvent.clientY - startMouseY) / scale;
+                            
+                            targetNode.curveOffsetX = initialOffsetX + deltaX;
+                            targetNode.curveOffsetY = initialOffsetY + deltaY;
+                            requestAnimationFrame(drawLines);
+                        };
+                        
+                        document.onmouseup = () => {
+                            document.onmousemove = null;
+                            document.onmouseup = null;
+                            document.body.style.cursor = 'default';
+                            autoSave();
+                        };
+                    };
+                }
+                
+                svg.appendChild(hitPath);
                 svg.appendChild(path);
             });
         }
