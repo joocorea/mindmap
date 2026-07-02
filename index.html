@@ -1440,7 +1440,13 @@
             const td = document.createElement('td');
             // 테두리를 흰색으로 주어 구분감을 줌
             td.className = `p-3 border-[2px] border-white align-top font-medium ${levelClass}`;
-            td.innerText = node.title || '새 항목';
+            
+            let displayText = node.title || '새 항목';
+            // 지역(2단계)인 경우 하위 업체(끝단) 갯수를 함께 표시
+            if (depth === 2) {
+                displayText += ` <span class="text-sm opacity-70">(${leaves}개)</span>`;
+            }
+            td.innerHTML = displayText;
             td.rowSpan = leaves;
             tr.appendChild(td);
             
