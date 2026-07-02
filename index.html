@@ -358,20 +358,10 @@
                     <p class="text-gray-500 mt-1">현재 작성된 마인드맵의 다양한 분석 데이터를 확인합니다.</p>
                 </div>
                 <!-- 대시보드 카드 영역 -->
-                <div id="stats-dashboard" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div id="stats-dashboard" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
                     <!-- JS로 렌더링 됨 -->
                 </div>
-                <!-- 좌우 균형 시각화 -->
-                <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-                    <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4">좌우 균형 분포</h3>
-                    <div id="stats-balance" class="h-4 w-full bg-gray-100 rounded-full overflow-hidden flex">
-                        <!-- JS로 렌더링 됨 -->
-                    </div>
-                    <div class="flex justify-between text-xs text-gray-400 mt-2 font-medium">
-                        <span>LEFT</span>
-                        <span>RIGHT</span>
-                    </div>
-                </div>
+
                 <!-- 노드 데이터 계층 표 -->
                 <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden mt-6">
                     <div class="p-5 border-b border-gray-200">
@@ -720,6 +710,10 @@
             } else {
                 mapData = JSON.parse(JSON.stringify(initialData));
             }
+            
+            // 0단계(루트) 노드 이름을 항상 현재 접속한 달(Month)로 자동 업데이트
+            const currentMonth = (new Date().getMonth() + 1) + '월';
+            mapData.title = currentMonth;
             
             const rootEl = document.getElementById('node-root');
             rootEl.ondragover = (e) => { 
@@ -1340,6 +1334,9 @@
             stats.totalNodes++;
             stats.totalChars += (node.title || '').length;
             
+            if (depth === 2) stats.level2Nodes = (stats.level2Nodes || 0) + 1;
+            if (depth === 3) stats.level3Nodes = (stats.level3Nodes || 0) + 1;
+            
             if (depth > stats.maxDepth) {
                 stats.maxDepth = depth;
             }
@@ -1362,7 +1359,9 @@
                 leafNodes: 0,
                 branchNodes: 1, // root is always a branch initially conceptually, but let's calculate properly
                 leftCount: 0,
-                rightCount: 0
+                rightCount: 0,
+                level2Nodes: 0,
+                level3Nodes: 0
             };
             
             // Analyze left tree
@@ -1375,6 +1374,8 @@
                 stats.branchNodes += leftStats.branchNodes;
                 stats.maxDepth = Math.max(stats.maxDepth, leftStats.maxDepth);
                 stats.leftCount = leftStats.totalNodes;
+                stats.level2Nodes += (leftStats.level2Nodes || 0);
+                stats.level3Nodes += (leftStats.level3Nodes || 0);
             }
             
             // Analyze right tree
@@ -1387,6 +1388,8 @@
                 stats.branchNodes += rightStats.branchNodes;
                 stats.maxDepth = Math.max(stats.maxDepth, rightStats.maxDepth);
                 stats.rightCount = rightStats.totalNodes;
+                stats.level2Nodes += (rightStats.level2Nodes || 0);
+                stats.level3Nodes += (rightStats.level3Nodes || 0);
             }
             
             // Root leaf check
@@ -1401,35 +1404,21 @@
         function renderStats() {
             const stats = analyzeMindMap();
             const dashboard = document.getElementById('stats-dashboard');
-            const balanceBar = document.getElementById('stats-balance');
             
             // 카드 생성 헬퍼
-            const createCard = (title, value, subtitle, color) => `
-                <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center">
-                    <div class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">${title}</div>
-                    <div class="text-3xl font-black text-${color}-600">${value}</div>
-                    <div class="text-xs text-gray-400 font-medium mt-1">${subtitle}</div>
+            const createCard = (title, value, subtitle, levelClass) => `
+                <div class="p-5 rounded-2xl border border-white shadow-sm flex flex-col justify-center ${levelClass}">
+                    <div class="text-sm font-bold uppercase tracking-wider mb-2 opacity-70">${title}</div>
+                    <div class="text-3xl font-black">${value}</div>
+                    <div class="text-xs font-medium mt-1 opacity-60">${subtitle}</div>
                 </div>
             `;
             
             dashboard.innerHTML = 
-                createCard('전체 노드 수', stats.totalNodes + '<span class="text-lg text-gray-400"> 개</span>', '루트 노드 포함', 'blue') +
-                createCard('최대 깊이', stats.maxDepth + '<span class="text-lg text-gray-400"> 단계</span>', '루트부터 제일 먼 거리', 'purple') +
-                createCard('끝단 노드 갯수', stats.leafNodes + '<span class="text-lg text-gray-400"> 개</span>', `전체의 ${Math.round((stats.leafNodes / stats.totalNodes) * 100)}% 차지`, 'green');
+                createCard('지역 노드 갯수', stats.level2Nodes + '<span class="text-lg opacity-70"> 개</span>', '2단계 항목 총합', 'level-2') +
+                createCard('업체 노드 갯수', stats.leafNodes + '<span class="text-lg opacity-70"> 개</span>', '마지막 단계 항목 총합', 'level-3');
                 
-            // 좌우 균형 퍼센트 계산
-            const totalSide = stats.leftCount + stats.rightCount;
-            const leftPct = totalSide === 0 ? 50 : (stats.leftCount / totalSide) * 100;
-            const rightPct = totalSide === 0 ? 50 : (stats.rightCount / totalSide) * 100;
-            
-            balanceBar.innerHTML = `
-                <div class="bg-blue-400 h-full transition-all duration-500 flex items-center justify-center text-[10px] font-bold text-white shadow-inner" style="width: ${leftPct}%">
-                    ${leftPct > 10 ? Math.round(leftPct) + '%' : ''}
-                </div>
-                <div class="bg-purple-400 h-full transition-all duration-500 flex items-center justify-center text-[10px] font-bold text-white shadow-inner" style="width: ${rightPct}%">
-                    ${rightPct > 10 ? Math.round(rightPct) + '%' : ''}
-                </div>
-            `;
+
             
             // 데이터 표 렌더링
             renderStatsTable(stats.maxDepth);
@@ -1444,9 +1433,13 @@
             const leaves = getLeafCount(node);
             const tr = document.createElement('tr');
             
+            // 마인드맵 노드와 동일한 색상 클래스 적용 (level-1, level-2, level-3)
+            const levelClass = `level-${depth > 3 ? 3 : depth}`;
+            
             // 현재 노드 정보 컬럼 추가
             const td = document.createElement('td');
-            td.className = "p-3 border-b border-gray-100 align-top text-gray-800";
+            // 테두리를 흰색으로 주어 구분감을 줌
+            td.className = `p-3 border-[2px] border-white align-top font-medium ${levelClass}`;
             td.innerText = node.title || '새 항목';
             td.rowSpan = leaves;
             tr.appendChild(td);
@@ -1456,8 +1449,9 @@
             // 빈 칸(Depth 여백) 채우기: 현재 노드가 자식이 없고 제일 깊은 곳이 아닐 경우 남은 칸을 빈칸으로
             if (!node.children || node.children.length === 0) {
                 for (let i = depth; i < maxDepth; i++) {
+                    const emptyLevelClass = `level-${(i + 1) > 3 ? 3 : (i + 1)}`;
                     const emptyTd = document.createElement('td');
-                    emptyTd.className = "p-3 border-b border-gray-100";
+                    emptyTd.className = `p-3 border-[2px] border-white ${emptyLevelClass}`;
                     tr.appendChild(emptyTd);
                 }
             } else {
@@ -1499,7 +1493,10 @@
             for (let i = 1; i <= maxDepth; i++) {
                 const th = document.createElement('th');
                 th.className = "p-3";
-                th.innerText = i + "단계";
+                if (i === 1) th.innerText = "강서/강동";
+                else if (i === 2) th.innerText = "지역";
+                else if (i === 3) th.innerText = "업체";
+                else th.innerText = i + "단계";
                 headerRow.appendChild(th);
             }
             thead.appendChild(headerRow);
