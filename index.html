@@ -1282,7 +1282,7 @@
                 const notepadHeight = 150; // 실제 인쇄시 차지하는 메모장 높이 (헤더 숨김 반영)
                 
                 let newScale = Math.min((a4Width - padding * 2) / rect.width, (a4Height - padding * 2 - notepadHeight) / rect.height);
-                if (newScale > 1) newScale = 1; // 원본보다 더 크게 확대하지 않음
+                if (newScale > 3) newScale = 3; // 페이지에 꽉 차도록 원본 이상 확대 허용 (최대 3배)
                 
                 scale = newScale;
                 // 치우침 방지: 스케일이 적용된 만큼 shift 값도 스케일링해서 이동
