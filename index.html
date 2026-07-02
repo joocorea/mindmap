@@ -998,8 +998,15 @@
 
                 const cp1X = midX;
                 const cp2X = midX;
-                const cp1Y = startY + cOffsetY;
-                const cp2Y = endY + cOffsetY;
+                let cp1Y = startY + cOffsetY;
+                let cp2Y = endY + cOffsetY;
+                
+                // Y좌표 역시 사용자의 드래그 누적으로 인해 시작점과 끝점의 범위를 벗어나 
+                // 컵 모양(U-Shape)으로 깊게 처지거나 위로 솟구치는 것을 원천 차단(Clamp)합니다.
+                const minY = Math.min(startY, endY);
+                const maxY = Math.max(startY, endY);
+                cp1Y = Math.max(minY, Math.min(maxY, cp1Y));
+                cp2Y = Math.max(minY, Math.min(maxY, cp2Y));
                 
                 // M: 시작점, C: 3차 베지어 곡선 (cp1, cp2, 끝점)
                 const d = `M ${startX} ${startY} C ${cp1X} ${cp1Y}, ${cp2X} ${cp2Y}, ${endX} ${endY}`;
