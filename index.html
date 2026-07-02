@@ -268,7 +268,21 @@
             
             <div class="w-px h-4 bg-gray-300 mx-2"></div>
             
-            <button onclick="resetZoomPan()" class="p-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">초점 맞추기</button>
+            <button onclick="resetZoomPan()" class="p-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors" title="초점 맞추기">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+            </button>
+
+            <select id="print-scale-select" class="px-2 py-1.5 border border-gray-300 bg-white rounded-lg text-sm text-gray-700 focus:outline-none focus:border-gray-500 cursor-pointer shadow-sm">
+                <option value="auto">배율: 자동 맞춤</option>
+                <option value="50">배율: 50%</option>
+                <option value="75">배율: 75%</option>
+                <option value="100">배율: 100%</option>
+                <option value="125">배율: 125%</option>
+                <option value="150">배율: 150%</option>
+                <option value="200">배율: 200%</option>
+                <option value="300">배율: 300%</option>
+            </select>
+
             <button onclick="printA4('landscape')" class="px-3 py-1.5 bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors shadow-sm flex items-center gap-1.5">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                 가로 인쇄
@@ -1281,8 +1295,14 @@
                 const padding = 40; 
                 const notepadHeight = 150; // 실제 인쇄시 차지하는 메모장 높이 (헤더 숨김 반영)
                 
-                let newScale = Math.min((a4Width - padding * 2) / rect.width, (a4Height - padding * 2 - notepadHeight) / rect.height);
-                if (newScale > 3) newScale = 3; // 페이지에 꽉 차도록 원본 이상 확대 허용 (최대 3배)
+                let newScale = 1;
+                const scaleSetting = document.getElementById('print-scale-select').value;
+                if (scaleSetting === 'auto') {
+                    newScale = Math.min((a4Width - padding * 2) / rect.width, (a4Height - padding * 2 - notepadHeight) / rect.height);
+                    if (newScale > 3) newScale = 3; // 자동 꽉 차게 최대 3배까지 확대 허용
+                } else {
+                    newScale = parseFloat(scaleSetting) / 100;
+                }
                 
                 scale = newScale;
                 // 치우침 방지: 스케일이 적용된 만큼 shift 값도 스케일링해서 이동
