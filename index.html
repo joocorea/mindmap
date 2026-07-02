@@ -753,13 +753,13 @@
             rightContainer.innerHTML = '';
             connectionRegistry.length = 0;
 
-            mapData.left.forEach(node => {
-                connectionRegistry.push({ from: 'node-root', to: 'node-' + node.id, dir: 'left' });
+            mapData.left.forEach((node, idx) => {
+                connectionRegistry.push({ from: 'node-root', to: 'node-' + node.id, dir: 'left', childIndex: idx, totalChildren: mapData.left.length });
                 leftContainer.appendChild(createBranchHTML(node, 1, 'left'));
             });
 
-            mapData.right.forEach(node => {
-                connectionRegistry.push({ from: 'node-root', to: 'node-' + node.id, dir: 'right' });
+            mapData.right.forEach((node, idx) => {
+                connectionRegistry.push({ from: 'node-root', to: 'node-' + node.id, dir: 'right', childIndex: idx, totalChildren: mapData.right.length });
                 rightContainer.appendChild(createBranchHTML(node, 1, 'right'));
             });
 
@@ -934,8 +934,8 @@
                 const alignClass = direction === 'left' ? 'items-end' : 'items-start';
                 childrenWrapper.className = `flex flex-col gap-2 ${alignClass}`;
                 
-                node.children.forEach(child => {
-                    connectionRegistry.push({ from: nodeEl.id, to: 'node-' + child.id, dir: direction });
+                node.children.forEach((child, idx) => {
+                    connectionRegistry.push({ from: nodeEl.id, to: 'node-' + child.id, dir: direction, childIndex: idx, totalChildren: node.children.length });
                     childrenWrapper.appendChild(createBranchHTML(child, level + 1, direction));
                 });
                 
@@ -963,7 +963,8 @@
                 
                 let startX, startY, endX, endY;
 
-                startY = (fRect.top - layerRect.top + fRect.height / 2) / scale;
+                const step = fRect.height / (conn.totalChildren + 1);
+                startY = (fRect.top - layerRect.top + step * (conn.childIndex + 1)) / scale;
                 endY = (tRect.top - layerRect.top + tRect.height / 2) / scale;
 
                 if (conn.dir === 'right') {
