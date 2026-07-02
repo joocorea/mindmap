@@ -986,10 +986,19 @@
                 const cOffsetX = targetNode && targetNode.curveOffsetX !== undefined ? targetNode.curveOffsetX : 0;
                 const cOffsetY = targetNode && targetNode.curveOffsetY !== undefined ? targetNode.curveOffsetY : 0;
                 
-                // 제어점 계산: S자가 아닌 트리 형태(Bracket)를 위해 두 제어점 모두 startX 근처로 배치
-                const cpOffsetBase = 40; 
-                const cp1X = startX + (isRight ? cpOffsetBase : -cpOffsetBase) + cOffsetX;
-                const cp2X = startX + (isRight ? cpOffsetBase : -cpOffsetBase) + cOffsetX; 
+                // 제어점 계산: S자가 아닌 트리 형태(Bracket)를 위해 두 제어점 모두 startX 근처로 배치하되, 
+                // 노드가 너무 가까울 때 선이 노드를 뚫고 나가는(Overlap) 현상을 막기 위해 
+                // 간격의 절반(0.4)을 넘지 않도록 안전장치(Math.min)를 추가합니다.
+                const cpOffsetBase = Math.min(40, Math.abs(endX - startX) * 0.4); 
+                let cp1X = startX + (isRight ? cpOffsetBase : -cpOffsetBase) + cOffsetX;
+                let cp2X = startX + (isRight ? cpOffsetBase : -cpOffsetBase) + cOffsetX; 
+
+                // 사용자의 드래그(cOffsetX) 누적으로 인해 제어점이 부모 노드를 파고들어 '돼지꼬리' 모양으로 
+                // 꼬이는 것을 방지하기 위해 X좌표를 startX와 endX 사이로 완전히 가둡니다(Clamp).
+                const minX = Math.min(startX, endX);
+                const maxX = Math.max(startX, endX);
+                cp1X = Math.max(minX, Math.min(maxX, cp1X));
+                cp2X = Math.max(minX, Math.min(maxX, cp2X));
                 const cp1Y = startY + cOffsetY;
                 const cp2Y = endY + cOffsetY;
                 
